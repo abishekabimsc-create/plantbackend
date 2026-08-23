@@ -76,7 +76,7 @@ The API listens on <http://localhost:5000>. Check `/api/health`.
 | `ADMIN_USERNAME` | `admin` | Seeded on first boot |
 | `ADMIN_PASSWORD` | *(your password)* | Stored only as a bcrypt hash |
 | `CLIENT_URL` | `http://localhost:5173` | CORS allow-list, comma-separated for several |
-| `SERVER_URL` | `http://localhost:5000` | Used to build absolute image URLs |
+| `SERVER_URL` | `http://localhost:5000` | Cosmetic — labels the startup banner only |
 | `MAX_UPLOAD_SIZE_MB` | `5` | Per-file ceiling |
 
 `.env` is git-ignored and must never be committed. `.env.example` is the
