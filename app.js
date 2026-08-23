@@ -6,6 +6,7 @@ const morgan = require('morgan');
 
 const config = require('./config/env');
 const apiRoutes = require('./routes');
+const ApiError = require('./utils/ApiError');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -24,6 +25,11 @@ app.use(
 
 const allowedOrigins = new Set(config.clientOrigins);
 
+// A browser reports a blocked request as an opaque CORS failure with no clue
+// which origin was refused, so log each one once. The message names the exact
+// value to add to CLIENT_URL — the single most common deployment mistake here.
+const reportedOrigins = new Set();
+
 app.use(
   cors({
     origin(origin, callback) {
@@ -33,7 +39,20 @@ app.use(
       if (!config.isProduction && /^http:\/\/localhost:\d+$/.test(origin)) {
         return callback(null, true);
       }
-      return callback(new Error(`Origin ${origin} is not allowed by CORS.`));
+
+      if (!reportedOrigins.has(origin)) {
+        reportedOrigins.add(origin);
+        console.warn(
+          `\n[cors] Refused a request from ${origin}\n` +
+            `[cors] Allowed right now: ${config.clientOrigins.join(', ')}\n` +
+            `[cors] To permit it, set CLIENT_URL=${origin} and restart.\n` +
+            '[cors] Several origins can be given, comma-separated.\n'
+        );
+      }
+
+      // 403, not the 500 a bare Error would produce: a refused origin is a
+      // rejected request, not a fault in the server.
+      return callback(ApiError.forbidden(`Origin ${origin} is not allowed by CORS.`));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
