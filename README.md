@@ -213,6 +213,43 @@ else.
 Run under a process manager (`pm2 start server.js --name nursery-api`) or in a
 container, behind nginx or Caddy terminating TLS.
 
+### Railway / Render
+
+There is no `.env` on a hosting platform — set the variables in the dashboard
+(Railway: **service → Variables**; Render: **service → Environment**). The app
+exits on boot with the list of what is missing rather than starting in a broken
+state, so a crash here usually means a variable is absent, not that the code
+failed.
+
+Set at least:
+
+```
+NODE_ENV=production
+MONGODB_URI=<your Atlas connection string, database name before the "?">
+JWT_SECRET=<48 random bytes>
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=<your password>
+CLIENT_URL=https://<your-frontend-domain>
+SERVER_URL=https://<your-api-domain>
+```
+
+`PORT` is injected by the platform — do not set it yourself.
+
+Two things that bite on first deploy:
+
+- **Atlas will refuse the connection** unless the platform's egress IP is
+  allowed. Railway and Render use dynamic addresses, so either allow
+  `0.0.0.0/0` under **Network Access** (the credentials still gate access) or
+  configure a static egress IP if your plan offers one.
+- **`CLIENT_URL` must be the real front-end origin.** In production the CORS
+  allow-list has no localhost fallback, so leaving it unset makes every browser
+  request fail even though the API itself is healthy.
+
+**Uploaded images will not survive a redeploy.** Railway and Render give each
+deploy a fresh filesystem, so anything in `uploads/` is lost. Mount a volume,
+or move uploads to S3/Cloudinary — `utils/files.js` and `middleware/upload.js`
+are the only two files that touch storage.
+
 `uploads/` holds real data and a container filesystem is ephemeral, so mount a
 volume or move uploads to S3/Cloudinary — `utils/files.js` and
 `middleware/upload.js` are the only two files that touch storage.

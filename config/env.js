@@ -7,10 +7,30 @@ const required = ['MONGODB_URI', 'JWT_SECRET', 'ADMIN_USERNAME', 'ADMIN_PASSWORD
 const missing = required.filter((key) => !process.env[key]);
 
 if (missing.length) {
-  console.error(
-    `\n[config] Missing required environment variables: ${missing.join(', ')}\n` +
-      '[config] Copy backend/.env.example to backend/.env and fill in the values.\n'
+  // The right fix depends on where this is running. A local checkout reads a
+  // .env file; a hosting platform injects variables into the process and will
+  // never have one. Telling someone on Railway to "copy .env.example" sends
+  // them looking for a file that must not exist there.
+  const onPlatform = Boolean(
+    process.env.RAILWAY_ENVIRONMENT ||
+      process.env.RENDER ||
+      process.env.FLY_APP_NAME ||
+      process.env.DYNO ||
+      process.env.VERCEL ||
+      process.env.KUBERNETES_SERVICE_HOST
   );
+
+  console.error(`\n[config] Missing required environment variables: ${missing.join(', ')}\n`);
+
+  if (onPlatform) {
+    console.error("[config] Add them to this service's environment variables, then redeploy.");
+    console.error('[config] Railway: service -> Variables.   Render: service -> Environment.');
+    console.error('[config] Do not commit a .env file — it is git-ignored on purpose.\n');
+  } else {
+    console.error('[config] Copy .env.example to .env in this folder and fill in the values.');
+    console.error('[config] Then check the database with:  npm run check-db\n');
+  }
+
   process.exit(1);
 }
 
