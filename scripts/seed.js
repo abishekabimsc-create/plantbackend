@@ -3,10 +3,14 @@
  * a dozen catalogue listings, each with generated botanical artwork written
  * into backend/uploads.
  *
- *   npm run seed           add anything that is missing
+ *   npm run seed              add anything that is missing
  *   npm run seed -- --reset   wipe banners + gallery first
  *
  * Safe to re-run: without --reset it only tops up what is absent.
+ *
+ * --reset refuses to run when the database holds content uploaded through the
+ * admin panel, so pointing it at a live database by mistake cannot silently
+ * destroy someone's work. Add --force to override that check.
  */
 const fs = require('fs/promises');
 const path = require('path');
@@ -19,6 +23,8 @@ const { removeUpload } = require('../utils/files');
 const { productArtwork, bannerArtwork } = require('./artwork');
 
 const reset = process.argv.includes('--reset');
+// --reset stops short when it finds admin-uploaded content; --force overrides.
+const force = process.argv.includes('--force');
 
 const BANNERS = [
   {
@@ -201,13 +207,36 @@ async function run() {
         Banner.find().select('imageUrl').lean(),
         Gallery.find().select('imageUrl').lean(),
       ]);
-      const images = [...banners, ...products].map((doc) => doc.imageUrl);
 
+      /**
+       * Anything whose image is not a generated seed illustration was put
+       * there by a person through the admin panel. Wiping a database that
+       * holds real content is almost never what was meant — most often the
+       * command was aimed at a development copy and hit the live one.
+       */
+      const isSeeded = (doc) => String(doc.imageUrl || '').startsWith('/uploads/seed-');
+      const realBanners = banners.filter((doc) => !isSeeded(doc));
+      const realProducts = products.filter((doc) => !isSeeded(doc));
+      const realCount = realBanners.length + realProducts.length;
+
+      if (realCount && !force) {
+        console.error('\n[seed] Refusing to reset: this database holds uploaded content.\n');
+        console.error(`[seed]   ${realBanners.length} banner(s) and ${realProducts.length} product(s)`);
+        console.error('[seed]   were added through the admin panel, not by this script.');
+        console.error('[seed]   Resetting would delete them and their images for good.\n');
+        console.error('[seed] If you are certain, re-run with --force.');
+        console.error('[seed] To load demo content without deleting anything, drop --reset.\n');
+        process.exitCode = 1;
+        return;
+      }
+
+      const images = [...banners, ...products].map((doc) => doc.imageUrl);
       await Promise.all([Banner.deleteMany({}), Gallery.deleteMany({})]);
       const removed = (await Promise.all(images.map(removeUpload))).filter(Boolean).length;
 
       console.log(
-        `[seed] reset: removed ${banners.length} banners, ${products.length} products, ${removed} image files`
+        `[seed] reset: removed ${banners.length} banners, ${products.length} products, ${removed} image files` +
+          (realCount ? ` (including ${realCount} uploaded via the admin panel)` : '')
       );
     }
 

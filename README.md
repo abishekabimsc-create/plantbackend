@@ -59,7 +59,7 @@ The API listens on <http://localhost:5000>. Check `/api/health`.
 | `npm run dev` | nodemon on port 5000 |
 | `npm run check-db` | Verify `MONGODB_URI` connects, and name the cause if it fails |
 | `npm run seed` | Load demo banners and listings |
-| `npm run seed -- --reset` | Wipe banners + gallery, remove their images, reload |
+| `npm run seed -- --reset` | Wipe banners + gallery, remove their images, reload. Refuses when the database holds admin-uploaded content — add `--force` to override |
 | `npm run create-admin` | Create or rotate the admin account |
 
 ---
@@ -161,6 +161,12 @@ database unreachable.
 ---
 
 ## Two rules worth knowing
+
+**`--reset` will not quietly destroy real content.** It counts records whose
+image is not a generated seed illustration — anything added through the admin
+panel — and stops rather than deleting them. Pointing a reset at a live
+database by mistake is the easiest way to lose someone's work, and the command
+is one flag away from a harmless top-up.
 
 **The hero carousel holds exactly three banners.** Enforced in three
 independent places: the admin UI disables adding when full, the controller
